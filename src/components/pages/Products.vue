@@ -240,10 +240,6 @@ export default {
           console.log('新增失敗');
         }
         if (vm.openModalMethod === 'delete') {
-          // eslint-disable-next-line no-console
-          console.log('刪除成功');
-          // eslint-disable-next-line no-console
-          console.log(api);
           modal = '#delProductModal';
         }
         $(modal).modal('hide');
