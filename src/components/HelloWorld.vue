@@ -16,10 +16,8 @@ export default {
     logout() {
       const api = `${process.env.APIPATH}/logout`;
       const vm = this;
-      // eslint-disable-next-line no-console
       console.log(api);
       this.$http.post(api).then((response) => {
-        // eslint-disable-next-line no-console
         console.log(response.data);
         if (response.data.success) {
           vm.$router.push('/login');

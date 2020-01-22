@@ -1,5 +1,6 @@
 <template>
   <div>
+    <loading :active.sync="isLoading"></loading>
     <div class="text-right">
       <button class="btn btn-primary" @click="openModal('set')">建立產品</button>
     </div>
@@ -38,6 +39,9 @@
       </tr>
     </tbody>
   </table>
+  <!-- @getpage="getProducts"是讓子元件Pagination可以使用父元件的方法 -->
+  <!-- :pagination="pagination"是把父元件的pagination資料傳入子元件 -->
+  <Pagination :pagination="pagination" @getpage="getProducts"></Pagination>
   <div class="modal fade" id="productModal" tabindex="-1" role="dialog"
     aria-labelledby="exampleModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg" role="document">
@@ -60,19 +64,19 @@
               </div>
               <div class="form-group">
                 <label for="customFile">或 上傳圖片
-                  <i class="fas fa-spinner fa-spin"></i>
+                  <i class="fas fa-spinner fa-spin" v-if="status.fileUploading"></i>
                 </label>
                 <input type="file" id="customFile" class="form-control"
-                  ref="files">
+                  ref="files" @change="uploadFile">
               </div>
               <img img="https://images.unsplash.com/photo-1483985988355-763728e1935b?ixlib=rb-0.3.5&ixid=eyJhcHBfaWQiOjEyMDd9&s=828346ed697837ce808cae68d3ddc3cf&auto=format&fit=crop&w=1350&q=80"
-                class="img-fluid" alt="" :src="tempProduct.imageURL">
+                class="img-fluid" alt="" :src="tempProduct.imageUrl">
             </div>
             <div class="col-sm-8">
               <div class="form-group">
                 <label for="title">標題</label>
                 <input type="text" class="form-control" id="title"
-                  v-model="tempProduct.title"
+                v-model="tempProduct.title"
                   placeholder="請輸入標題">
               </div>
 
@@ -172,34 +176,36 @@
 // 元件內引入jquery
 import $ from 'jquery';
 
+import Pagination from '../Pagination';
+
 export default {
   data() {
     return {
       products: [],
-      tempProduct: {
-        title: '',
-        category: '',
-        origin_price: 0,
-        price: 0,
-        unit: '',
-        image: '',
-        description: '',
-        content: '',
-        is_enabled: 1,
-        imageUrl: '',
-      },
+      pagination: {},
+      tempProduct: {},
       openModalMethod: '',
+      isLoading: false,
+      status: {
+        fileUploading: false,
+      },
     };
+  },
+  components: {
+    Pagination,
   },
   methods: {
     // 取得商品列表(管理員用)
-    getProducts() {
-      const api = `${process.env.APIPATH}/api/${process.env.CUSTOMPATH}/admin/products`;
+    // page = 1 是es6的參數預設值，當函式沒有代參數進去時，會自動代1進去
+    getProducts(page = 1) {
+      const api = `${process.env.APIPATH}/api/${process.env.CUSTOMPATH}/admin/products?page=${page}`;
       const vm = this;
+      vm.isLoading = true;
       this.$http.get(api).then((response) => {
-        // eslint-disable-next-line no-console
         console.log(response.data);
+        vm.isLoading = false;
         vm.products = response.data.products;
+        vm.pagination = response.data.pagination;
       });
     },
     openModal(openModalMethod, item) {
@@ -208,10 +214,13 @@ export default {
         vm.tempProduct = {};
         vm.openModalMethod = 'set';
       } else if (openModalMethod === 'edit') {
+        // 編輯時因為物件傳參考特性，所以如果直接使用 item 會導致在還沒確認修改前，就直接修改到原始資料
+        // 所以使用 Object.assign({}, item);的方法來建立一個不會傳參考的新物件
         vm.tempProduct = Object.assign({}, item);
         vm.openModalMethod = 'edit';
       } else {
-        vm.tempProduct = Object.assign({}, item);
+        // 刪除時，不用加 Object.assign({}, item);，因為物件會直接被刪掉，所以傳參考並不影響
+        vm.tempProduct = item;
         vm.openModalMethod = 'delete';
       }
       if (openModalMethod !== 'delete') {
@@ -231,12 +240,10 @@ export default {
       } else if (vm.openModalMethod === 'delete') {
         httpMethod = 'delete';
       }
-      vm.$http[httpMethod](api, { data: vm.tempProduct }).then((response) => {
-        // eslint-disable-next-line no-console
+      this.$http[httpMethod](api, { data: vm.tempProduct }).then((response) => {
         console.log(response.data);
         let modal = '#productModal';
         if (!response.data.success) {
-          // eslint-disable-next-line no-console
           console.log('新增失敗');
         }
         if (vm.openModalMethod === 'delete') {
@@ -244,7 +251,30 @@ export default {
         }
         $(modal).modal('hide');
         vm.getProducts();
-        // vm.products = response.data.products;
+        vm.products = response.data.products;
+      });
+    },
+    uploadFile() {
+      const uploadedFile = this.$refs.files.files[0];
+      console.log(uploadedFile);
+      const vm = this;
+      vm.status.fileUploading = true;
+      const formData = new FormData();
+      formData.append('file-to-upload', uploadedFile);
+      const url = `${process.env.APIPATH}/api/${process.env.CUSTOMPATH}/admin/upload`;
+      this.$http.post(url, formData, {
+        header: 'multipart/form-data',
+      }).then((response) => {
+        console.log(response.data);
+        vm.status.fileUploading = false;
+        if (response.data.success) {
+          // 強制動態寫入資料
+          vm.$set(vm.tempProduct, 'imageUrl', response.data.imageUrl);
+          this.$bus.$emit('message:push', '上傳成功', 'success');
+        } else {
+          this.$bus.$emit('message:push', response.data.message, 'danger');
+        }
+        console.log(vm.tempProduct);
       });
     },
   },

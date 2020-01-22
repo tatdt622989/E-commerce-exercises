@@ -47,11 +47,9 @@ export default {
     signin() {
       const api = `${process.env.APIPATH}/admin/signin`;
       const vm = this;
-      // eslint-disable-next-line no-console
       console.log(api);
       // 回傳使用者訊息與資料庫比對
       this.$http.post(api, vm.user).then((response) => {
-        // eslint-disable-next-line no-console
         console.log(response.data);
         if (response.data.success) {
           vm.$router.push('/admin/products');
