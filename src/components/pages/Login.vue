@@ -29,10 +29,13 @@
       <button class="btn btn-lg btn-primary btn-block" type="submit">Sign in</button>
       <p class="mt-5 mb-3 text-muted">&copy; 2017-2018</p>
     </form>
+    <Alert></Alert>
   </div>
 </template>
 
 <script>
+import Alert from '../AlertMessage';
+
 export default {
   name: 'Login',
   data() {
@@ -42,6 +45,9 @@ export default {
         password: '',
       },
     };
+  },
+  components: {
+    Alert,
   },
   methods: {
     signin() {
@@ -53,6 +59,8 @@ export default {
         console.log(response.data);
         if (response.data.success) {
           vm.$router.push('/admin/products');
+        } else {
+          this.$bus.$emit('message:push', response.data.message, 'danger');
         }
       });
     },

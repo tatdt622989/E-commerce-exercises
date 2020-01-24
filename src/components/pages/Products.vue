@@ -21,10 +21,10 @@
         <td>{{ item.category }}</td>
         <td>{{ item.title }}</td>
         <td class="text-right">
-          {{ item.origin_price }}
+          {{ item.origin_price | currency}}
         </td>
         <td class="text-right">
-          {{ item.price }}
+          {{ item.price | currency}}
         </td>
         <td>
           <span v-if="item.is_enabled==1" class="text-success">啟用</span>
@@ -76,6 +76,8 @@
               <div class="form-group">
                 <label for="title">標題</label>
                 <input type="text" class="form-control" id="title"
+                @blur="isBlur = true"
+                :class="checkInput('title')"
                 v-model="tempProduct.title"
                   placeholder="請輸入標題">
               </div>
@@ -99,12 +101,16 @@
                 <div class="form-group col-md-6">
                 <label for="origin_price">原價</label>
                   <input type="number" class="form-control" id="origin_price"
+                    @blur="isBlur = true"
+                    :class="checkInput('origin_price')"
                     v-model="tempProduct.origin_price"
                     placeholder="請輸入原價">
                 </div>
                 <div class="form-group col-md-6">
                   <label for="price">售價</label>
                   <input type="number" class="form-control" id="price"
+                    @blur="isBlur = true"
+                    :class="checkInput('price')"
                     v-model="tempProduct.price"
                     placeholder="請輸入售價">
                 </div>
@@ -189,6 +195,8 @@ export default {
       status: {
         fileUploading: false,
       },
+      isVerified: [],
+      isBlur: '',
     };
   },
   components: {
@@ -210,6 +218,7 @@ export default {
     },
     openModal(openModalMethod, item) {
       const vm = this;
+      this.isBlur = false;
       if (openModalMethod === 'set') {
         vm.tempProduct = {};
         vm.openModalMethod = 'set';
@@ -231,6 +240,12 @@ export default {
       const vm = this;
       let api = `${process.env.APIPATH}/api/${process.env.CUSTOMPATH}/admin/product`;
       let httpMethod = 'post';
+      const verified = this.checkForm();
+      if (vm.openModalMethod !== 'delete' && !verified) {
+        this.$bus.$emit('message:push', '請填寫必填欄位', 'danger');
+        this.isBlur = true;
+        return;
+      }
       // 如果點選的是編輯按鈕，則使用put的http方法
       if (vm.openModalMethod !== 'set') {
         api = `${process.env.APIPATH}/api/${process.env.CUSTOMPATH}/admin/product/${vm.tempProduct.id}`;
@@ -244,7 +259,9 @@ export default {
         console.log(response.data);
         let modal = '#productModal';
         if (!response.data.success) {
-          console.log('新增失敗');
+          this.$bus.$emit('message:push', '資料回傳失敗', 'danger');
+        } else {
+          this.$bus.$emit('message:push', '成功', 'success');
         }
         if (vm.openModalMethod === 'delete') {
           modal = '#delProductModal';
@@ -276,6 +293,34 @@ export default {
         }
         console.log(vm.tempProduct);
       });
+    },
+    checkInput(item) {
+      if (this.tempProduct[item] && this.isBlur) {
+        return 'is-valid';
+      } else if (this.isBlur) {
+        return 'is-invalid';
+      }
+      return '';
+    },
+    checkForm() {
+      let i = 0;
+      while (this.isVerified.length > i) {
+        if (!this.isVerified[i]) {
+          return false;
+        }
+        i += 1;
+      }
+      return true;
+    },
+  },
+  watch: {
+    tempProduct: {
+      handler() {
+        this.isVerified = [!!this.tempProduct.title,
+          !!this.tempProduct.origin_price,
+          !!this.tempProduct.price];
+      },
+      deep: true,
     },
   },
   // 在created階段時，執行函式
